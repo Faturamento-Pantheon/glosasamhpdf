@@ -320,7 +320,26 @@ const envSave=async per=>{if(!ENVDB||ENVRO)return;if(envQ[per]){envDirty[per]=tr
 const setEnv=(per,g,v)=>{ENV[ENVK(per,g)]=v;try{localStorage.setItem(ENVK(per,g),v)}catch(e){};envSave(per)};
 function envStat(m){let el=document.getElementById("envst");const side=document.querySelector(".side");if(!el&&side){el=document.createElement("div");el.id="envst";el.className="envst";side.appendChild(el)}if(!el)return;
  const T={cloud:["ok","Marcações Enviado/Pendente salvas na nuvem — aparecem em qualquer computador"],local:["warn","Marcações Enviado/Pendente salvas só neste navegador"],ro:["warn","Você pode ver as marcações, mas não alterar"],err:["warn","Não foi possível salvar na nuvem agora; ficou salvo neste navegador"],load:["","Carregando marcações…"]}[m];el.className="envst "+T[0];el.textContent=T[1]}
+/* Nuvem das marcações (Enviado/Pendente e origem): Firebase da Pantheon, documentos pantheon/glosas-envio e pantheon/glosas-origem.
+   Mesmo formato do banco do artefato, para o resto do código não mudar. O app do dono lê pantheon/glosas-envio. */
+async function fsDb(){
+ const V="10.12.2";
+ const A=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-app.js`);
+ const F=await import(`https://www.gstatic.com/firebasejs/${V}/firebase-firestore.js`);
+ const cfg={apiKey:"AIzaSyBbfRbzKgQ7fVwnxmRIS0j7gBNM7n1AMt4",authDomain:"estoque-pantheon.firebaseapp.com",projectId:"estoque-pantheon",storageBucket:"estoque-pantheon.firebasestorage.app",messagingSenderId:"255724222579",appId:"1:255724222579:web:4c1d530701a8bd21879206"};
+ const app=A.getApps().find(a=>a.name==="glosas")||A.initializeApp(cfg,"glosas");
+ const fs=F.getFirestore(app);
+ const REF={envio:F.doc(fs,"pantheon","glosas-envio"),origem:F.doc(fs,"pantheon","glosas-origem")};
+ const meta=x=>({fromCache:!!(x.metadata&&x.metadata.fromCache)});
+ return {
+  collection(c){return{onSnapshot(cb,err){return F.onSnapshot(REF[c],x=>{const d=x.exists()?x.data():{};cb({docs:Object.keys(d).map(id=>({id,data:()=>d[id]})),metadata:meta(x)})},err)}}},
+  doc(path){const [c,id]=path.split("/");const ref=REF[c];return{
+   set:o=>c==="envio"?F.setDoc(ref,{[id]:o},{merge:true}):F.setDoc(ref,o),
+   onSnapshot(cb,err){return F.onSnapshot(ref,x=>cb({exists:x.exists(),data:()=>x.data(),metadata:meta(x)}),err)}}}
+ };
+}
 (async()=>{envStat("load");let db=null;try{db=window.claude&&window.claude.use?await window.claude.use("db"):null}catch(e){db=null}
+ if(!db){try{db=await fsDb()}catch(e){console.warn("nuvem das marcações indisponível",e);db=null}}
  if(!db){envStat("local");return}ENVDB=db;let first=true;
  db.collection("envio").onSnapshot(snap=>{let ch=false;const seen=new Set();
   snap.docs.forEach(d=>{const b=d.data()||{};const g=b.g||{};seen.add(d.id);for(const k in g){const kk=ENVK(d.id,k);if(ENV[kk]!==g[k]&&!envQ[d.id]){ENV[kk]=g[k];ch=true;try{localStorage.setItem(kk,g[k])}catch(e){}}}});
