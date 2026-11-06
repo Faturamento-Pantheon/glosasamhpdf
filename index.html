@@ -387,6 +387,7 @@ html.gating body::after{content:"Carregando…";position:fixed;inset:0;display:g
 .nvbox small{font-size:.74rem;color:var(--muted)}
 .nvbox p{font-size:.8rem;color:var(--muted);margin-top:4px}
 .nvnote{background:var(--gold-soft);border-radius:8px;padding:12px 14px;font-size:.88rem;line-height:1.55}
+.nvbox .nvr{font-family:inherit;font-size:inherit;color:var(--ink)}
 </style>
 <style>html,body{margin:0;height:100%}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -610,6 +611,7 @@ function nvHTML(L,ak,opt){const A=L.filter(o=>o.s.n>1e-9);const tot=SUM(A,o=>o.s
  let h=`<div class="card nvcard"><div class="eyebrow">Não volta · o que é esse valor</div>
  <p class="frase"><b style="color:var(--loss)">${brl(tot)}</b> são glosas que <b>não vão mais voltar</b>: o convênio manteve o corte e não pagou depois. São ${pl(A.length,"item","itens")} de ${pl(pats.length,"paciente","pacientes")}.</p>
  <div class="nvgrid">${tys.map(([k,n,v])=>`<div class="nvbox" style="--c:${TY[k][1]}"><span class="l">${TY[k][0]}</span><b>${brl(v)}</b><small>${pl(n,"item","itens")} · ${pct(v,tot)}</small><p>${TY[k][2]}</p></div>`).join("")}</div>
+ ${opt.hasOrg?(()=>{const ks=Object.keys(ORGG).filter(k=>A.some(o=>o.o===k));return `<div class="eyebrow" style="margin-top:6px">Por clínica</div><div class="nvgrid">${ks.map(k=>{const a=A.filter(o=>o.o===k);const v=SUM(a,o=>o.s.n),r=SUM(a,o=>o.s.real);return `<div class="nvbox" style="--c:${ORGG[k][2]}"><span class="l">${ORGG[k][0]}</span><b>${brl(v)}</b><small>${pct(v,tot)} · ${pl(a.length,"item","itens")} · ${pl(new Set(a.map(o=>nkO(o.x[3]))).size,"paciente","pacientes")}</small><p>Atendimento sem pagamento: <b class="nvr">${brl(r)}</b>${v-r>0.005?` · ${brl(v-r)} cobrado acima da tabela, em duplicidade ou pago depois`:""}</p></div>`}).join("")}</div>`})():""}
  ${nl>0.005?`<div class="nvnote"><b>Dentro desse valor, ${brl(nl)} não é atendimento perdido:</b> ${nls.map(([k,v])=>`${brl(v)} ${NL[k]}`).join("; ")}. Nesses casos o convênio pagou o atendimento (pelo valor da tabela dele ou em outra cobrança) e cortou só a diferença ou a cobrança repetida. O atendimento que ficou sem pagamento soma <b>${brl(real)}</b>.</div>`:""}</div>`;
  h+=`<div class="two"><div class="card"><div class="eyebrow">Por motivo · e o que fazer</div><div class="bars">${mots.slice(0,10).map(m=>bar(`${esc(motP(m.k))} <span class="code">${m.k}</span>`,`${pl(m.n,"item","itens")} · ${DICA(m.k)}`,m.v,mx)).join("")}</div>${mots.length>10?`<p class="sumline">Mais ${mots.length-10} motivos somam ${brl(SUM(mots.slice(10),m=>m.v))}.</p>`:""}</div>
  <div class="card"><div class="eyebrow">Por convênio</div><div class="bars">${cvs.map(c=>bar(esc(c.k),pl(c.n,"item","itens"),c.v,cx)).join("")}</div>
