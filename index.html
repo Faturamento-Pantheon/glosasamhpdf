@@ -375,6 +375,18 @@ html.gating body::after{content:"Carregando…";position:fixed;inset:0;display:g
 .qpick select{font-size:.82rem;padding:9px 4px 9px 8px;letter-spacing:-.01em}
 @media (max-width:820px){.qpick select{font-size:.95rem}}
 @media (min-width:821px){.shell{grid-template-columns:270px minmax(0,1fr)}}
+.kpi.nvk{cursor:pointer;transition:background .15s}
+.kpi.nvk:hover{background:var(--loss-soft)}
+.kpi.nvk .v{color:var(--loss)}
+.nvlink{color:var(--loss);font-weight:600;white-space:nowrap}
+.nvcard{border-left:4px solid var(--loss)}
+.nvgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px}
+.nvbox{border:1px solid var(--line);border-top:3px solid var(--c);border-radius:8px;padding:10px 14px;background:var(--bg);display:flex;flex-direction:column;gap:2px}
+.nvbox .l{font-size:.8rem;font-weight:600}
+.nvbox b{font-family:var(--f-display);font-size:1.4rem;font-weight:600;color:var(--c)}
+.nvbox small{font-size:.74rem;color:var(--muted)}
+.nvbox p{font-size:.8rem;color:var(--muted);margin-top:4px}
+.nvnote{background:var(--gold-soft);border-radius:8px;padding:12px 14px;font-size:.88rem;line-height:1.55}
 </style>
 <style>html,body{margin:0;height:100%}img{max-width:100%}[hidden]{display:none!important}</style>
 </head>
@@ -549,7 +561,7 @@ function kpi4(t,filtered,extraG,rec,recSub){return kpiHTML([
  [filtered?"Glosado no filtro":"Glosado",brl(t.g),extraG||"o que o convênio cortou","loss"],
  ["Recuperado (pago)",brl(rec||0),recSub||"o que os recursos pagaram","okk"],
  ["Pode voltar",brl(t.p),"em recurso, na AMHPDF ou esperando documento","warnk"],
- ["Não volta",brl(t.n),t.n>0.005?"o convênio manteve o corte":"nenhuma glosa mantida",""]])}
+ ["Não volta",brl(t.n),t.n>0.005?`o convênio manteve o corte · <span class="nvlink">ver detalhes →</span>`:"nenhuma glosa mantida","nvk"]])}
 const HELP={nl:`<b>Por que parte do “Não volta” não é perda de verdade?</b> Quando o código é <b>cobrado acima do preço da tabela</b>, o convênio pagou o valor da tabela dele e cortou só a diferença. Quando é <b>cobrado duas vezes</b> ou <b>já pago em outra guia</b>, uma das cobranças já foi paga. E quando a guia foi <b>cobrada de novo</b> e o valor entrou, também não houve perda. A <b>perda real</b> é o restante: atendimentos que o convênio não pagou.`,
  como:`<b>Como ler:</b> <b>Glosado</b> é o que o convênio cortou. <b style="color:var(--ok)">Recuperado (pago)</b> é o que os recursos pagaram no período, inclusive de glosas antigas. <b style="color:var(--warn)">Pode voltar</b> é o que ainda está em recurso, na AMHPDF ou esperando documento. <b style="color:var(--loss)">Não volta</b> é o que o convênio manteve.`};
 function helpBox(k){return `<div class="helpbox">${HELP[k]}<button type="button" class="lnk" data-help="">fechar ✕</button></div>`}
@@ -579,6 +591,34 @@ function orgOfName(per,name,fb){const P=DATA[per];if(!P||!P.PAC||!P.PAC.length)r
 function orgSplit(items,st,org,val,cols){const ks=Object.keys(ORGG).filter(k=>items.some(x=>org(x)===k));if(!ks.length)return "";
  const cell=(a)=>a.length?`<b>${a.length}</b> · ${brl(SUM(a,val))}`:`<span class="muted">—</span>`;
  return `<div class="scroll osplit"><table><thead><tr><th style="text-align:left">Origem</th>${cols.map(([s,l,c])=>`<th style="color:${c}">${l}</th>`).join("")}</tr></thead><tbody>${ks.map(k=>{const a=items.filter(x=>org(x)===k);return `<tr><td style="text-align:left"><b>${ORGG[k][0]}</b></td>${cols.map(([s])=>`<td class="n">${cell(a.filter(x=>s.includes(st(x))))}</td>`).join("")}</tr>`}).join("")}</tbody></table></div>`}
+function nvHTML(L,ak,opt){const A=L.filter(o=>o.s.n>1e-9);const tot=SUM(A,o=>o.s.n);
+ if(!A.length)return `<div class="card"><div class="eyebrow">Não volta</div><p class="frase">Nenhuma glosa mantida até agora. Tudo o que foi glosado ainda pode voltar ou já voltou.</p></div>`;
+ const real=SUM(A,o=>o.s.real),nl=SUM(A,o=>o.s.nl);
+ const ty=o=>o.s.sub==="neg"?"neg":o.s.sub==="parc"?"parc":o.s.sub==="rec"?"parc":"mant";
+ const TY={mant:["Mantida pelo convênio","var(--loss)","O convênio analisou e manteve o corte (situação M no extrato). Não há mais recurso pela AMHPDF."],neg:["Recurso negado","#8C5A9E","A guia foi reapresentada em recurso e o convênio negou de novo."],parc:["Recurso pago só em parte","var(--warn)","O recurso foi pago, mas não o valor inteiro. A diferença não volta."],rec:["Centavos de arredondamento","#8C7B8F","Diferença de centavos entre o glosado e o pago no recurso."]};
+ const tys=Object.keys(TY).map(k=>{const a=A.filter(o=>ty(o)===k);return [k,a.length,SUM(a,o=>o.s.n)]}).filter(r=>r[2]>0.005);
+ const cat=o=>{if(o.s.nl<=0.005)return "";const r=o.s.r;const c=o.x[9];if(r&&r[17]==="pago")return "pago";if(c==="1705"||c==="1714")return "val";if(c==="1702"||c==="1305")return "dup";if(r&&r[13]==="rec")return "arr";return "val"};
+ const NL={val:"cobrado acima do preço da tabela",dup:"cobrado duas vezes ou já pago em outra guia",pago:"pago depois numa nova cobrança",arr:"centavos de arredondamento"};
+ const nls=Object.keys(NL).map(k=>[k,SUM(A.filter(o=>cat(o)===k),o=>o.s.nl)]).filter(r=>r[1]>0.005);
+ const grp=(f)=>[...GRP(A,f)].map(([k,b])=>({k,n:b.length,v:SUM(b,o=>o.s.n),b})).sort((p,q)=>q.v-p.v);
+ const mots=grp(o=>o.x[9]),cvs=grp(o=>o.x[1]).slice(0,8);
+ const mx=mots[0].v,cx=cvs[0].v;
+ const bar=(lab,sub,v,max)=>`<div class="bar"><div class="lab"><b>${lab}</b><span>${sub}</span></div><div class="track"><i style="width:${Math.max(v/max*100,.5)}%"></i></div><div class="val">${brl(v)}</div><div class="pct">${pct(v,tot)}</div></div>`;
+ const pats=[...GRP(A,o=>nkO(o.x[3]))].map(([k,b])=>{const rows=[...new Set(b.map(o=>o.s.r).filter(r=>r&&r[13]==="mant"))];const ms=rows.map(r=>getMS(ak,r));return {nome:b[0].x[3],o:b[0].o,b,v:SUM(b,o=>o.s.n),sol:ms.filter(x=>x==="Solicitado").length,per:ms.filter(x=>x==="Perda").length,pen:ms.filter(x=>x==="Pendente").length}}).sort((p,q)=>q.v-p.v);
+ const lim=opt.lim||60;
+ const lab=k=>DATA[k]?DATA[k].label:k;
+ let h=`<div class="card nvcard"><div class="eyebrow">Não volta · o que é esse valor</div>
+ <p class="frase"><b style="color:var(--loss)">${brl(tot)}</b> são glosas que <b>não vão mais voltar</b>: o convênio manteve o corte e não pagou depois. São ${pl(A.length,"item","itens")} de ${pl(pats.length,"paciente","pacientes")}.</p>
+ <div class="nvgrid">${tys.map(([k,n,v])=>`<div class="nvbox" style="--c:${TY[k][1]}"><span class="l">${TY[k][0]}</span><b>${brl(v)}</b><small>${pl(n,"item","itens")} · ${pct(v,tot)}</small><p>${TY[k][2]}</p></div>`).join("")}</div>
+ ${nl>0.005?`<div class="nvnote"><b>Dentro desse valor, ${brl(nl)} não é atendimento perdido:</b> ${nls.map(([k,v])=>`${brl(v)} ${NL[k]}`).join("; ")}. Nesses casos o convênio pagou o atendimento (pelo valor da tabela dele ou em outra cobrança) e cortou só a diferença ou a cobrança repetida. O atendimento que ficou sem pagamento soma <b>${brl(real)}</b>.</div>`:""}</div>`;
+ h+=`<div class="two"><div class="card"><div class="eyebrow">Por motivo · e o que fazer</div><div class="bars">${mots.slice(0,10).map(m=>bar(`${esc(motP(m.k))} <span class="code">${m.k}</span>`,`${pl(m.n,"item","itens")} · ${DICA(m.k)}`,m.v,mx)).join("")}</div>${mots.length>10?`<p class="sumline">Mais ${mots.length-10} motivos somam ${brl(SUM(mots.slice(10),m=>m.v))}.</p>`:""}</div>
+ <div class="card"><div class="eyebrow">Por convênio</div><div class="bars">${cvs.map(c=>bar(esc(c.k),pl(c.n,"item","itens"),c.v,cx)).join("")}</div>
+ ${opt.hasOrg?`<div class="eyebrow" style="margin-top:14px">Por origem do paciente</div><div class="bars">${Object.keys(ORGG).map(k=>{const a=A.filter(o=>o.o===k);return a.length?bar(ORGG[k][0],pl(new Set(a.map(o=>nkO(o.x[3]))).size,"paciente","pacientes"),SUM(a,o=>o.s.n),tot):""}).join("")}</div>`:""}</div></div>`;
+ if(opt.showPer){const ps=[...GRP(A,o=>o.k)].map(([k,b])=>[k,SUM(b,o=>o.s.n),b.length]);const pm=Math.max(...ps.map(p=>p[1]));
+  h+=`<div class="card"><div class="eyebrow">Por quinzena da glosa</div><div class="bars">${ps.map(([k,v,n])=>bar(esc(lab(k)),pl(n,"item","itens"),v,pm)).join("")}</div></div>`}
+ h+=`<div class="card"><div class="ch"><div class="eyebrow">Pacientes</div><span class="hint">pedido de revisão: veja e marque na aba A fazer</span></div><div class="scroll"><table><thead><tr><th style="text-align:left">Paciente</th>${opt.hasOrg?`<th style="text-align:left">Origem</th>`:""}<th style="text-align:left">Convênio</th><th style="text-align:left">Nº do atendimento</th><th style="text-align:left">Motivo</th><th style="text-align:left">Pedido de revisão</th><th>Não volta</th></tr></thead><tbody>${pats.slice(0,lim).map(p=>`<tr><td style="text-align:left;white-space:normal;min-width:150px">${esc(p.nome)}</td>${opt.hasOrg?`<td style="text-align:left">${ORGG[p.o||"oc"][0]}</td>`:""}<td style="text-align:left;white-space:normal">${[...new Set(p.b.map(o=>o.x[1]))].map(esc).join("<br>")}</td><td class="n" style="text-align:left;white-space:normal">${[...new Set(p.b.map(o=>ATD(o.x)))].slice(0,3).join("<br>")}${new Set(p.b.map(o=>ATD(o.x))).size>3?"<br>…":""}</td><td style="text-align:left;white-space:normal;min-width:160px">${[...new Set(p.b.map(o=>motP(o.x[9])))].map(esc).join("; ")}</td><td style="text-align:left;white-space:normal;font-size:.78rem">${[p.sol?`<span style="color:var(--ok)">${p.sol} solicitada${p.sol>1?"s":""}</span>`:"",p.per?`<span style="color:var(--loss)">${p.per} perda${p.per>1?"s":""}</span>`:"",p.pen?`<span style="color:var(--warn)">${p.pen} pendente${p.pen>1?"s":""}</span>`:""].filter(Boolean).join(" · ")||'<span class="muted">—</span>'}</td><td class="n" style="color:var(--loss)">${brl(p.v)}</td></tr>`).join("")}</tbody></table></div>${pats.length>lim?`<button class="ghost more" type="button" data-nvmore="1">Mostrar mais ${Math.min(100,pats.length-lim)} de ${pats.length-lim}</button>`:""}</div>`;
+ return h}
+
 function todoHTML(T,{showPer,lim,fil,open,mode}){mode=mode||"todo";const lab=k=>DATA[k]?DATA[k].label:k;
  const dP=T.docs.filter(d=>getEnv(d.per,d.g)!=="Enviado").length,mP=T.mant.filter(m=>getMS(T.ak,m.r)==="Pendente").length;const mS=T.mant.filter(m=>getMS(T.ak,m.r)==="Solicitado"),mL=T.mant.filter(m=>getMS(T.ak,m.r)==="Perda");
  const fd=fil.doc||"",fm=fil.ms||"";
@@ -648,7 +688,7 @@ function mount(D,PAC,PER){
   const ks=Object.keys(F).filter(k=>F[k]);const c=$("qchips");c.hidden=!ks.length;c.innerHTML=ks.length?`<span class="muted">Filtrando:</span>${ks.map(k=>`<button class="fchip" data-x="${k}" type="button">${DL[k]}: <b>${esc(lab(k,F[k]))}</b> ✕</button>`).join("")}<button class="fchip clear" data-x="*" type="button">Limpar</button>`:"";
   const h=$("qhelp");h.hidden=!st.help;h.innerHTML=st.help?helpBox(st.help):"";
   const np=pacRows().length,tc=todoCount(TD);
-  $("qtabs").innerHTML=[["res","Resumo"],["pac",`Pacientes <span class="cnt">${np}</span>`],["todo",`A fazer${tc?` <span class="cnt warn">${tc}</span>`:""}`],["done",`Tratadas${doneCount(TD)?` <span class="cnt">${doneCount(TD)}</span>`:""}`]].map(([k,l])=>`<button type="button" class="tab${st.tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")+`<button type="button" class="lnk howto" data-help="como">Como ler?</button>`}
+  $("qtabs").innerHTML=[["res","Resumo"],["pac",`Pacientes <span class="cnt">${np}</span>`],["todo",`A fazer${tc?` <span class="cnt warn">${tc}</span>`:""}`],["done",`Tratadas${doneCount(TD)?` <span class="cnt">${doneCount(TD)}</span>`:""}`],["nv","Não volta"]].map(([k,l])=>`<button type="button" class="tab${st.tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")+`<button type="button" class="lnk howto" data-help="como">Como ler?</button>`}
 
  function tabRes(){const a=fS(),t=tot4(a),aM=fS("mot"),aC=fS("conv"),aO=fS("org");
   const mots=[...GRP(aM,o=>o.x[9])].map(([k,b])=>({v:k,lab:esc(motP(k)),sub:`${pl(new Set(b.map(o=>ATD(o.x))).size,"atendimento","atendimentos")} · ${b.length===1?"1 item":b.length+" itens"} <span class="code">${k}</span>`,g:SUM(b,o=>o.x[8])})).sort((p,q)=>q.g-p.g);
@@ -677,11 +717,13 @@ function mount(D,PAC,PER){
   <div class="scroll"><table class="ptab"><thead><tr><th></th><th style="text-align:left">Paciente</th>${HASORG?`<th style="text-align:left">Origem</th>`:""}<th style="text-align:left">Convênio</th><th>Glosado</th><th style="text-align:left">Situação</th><th style="text-align:left">Motivo principal</th></tr></thead><tbody>${body}</tbody></table></div>${rows.length>st.lim?`<button class="ghost more" type="button" data-more="pac">Mostrar mais ${Math.min(60,rows.length-st.lim)} de ${rows.length-st.lim}</button>`:""}`}
  function tabTodo(){return todoHTML(TD,{showPer:false,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set())})+dicasHTML(S)}
  function tabDone(){return todoHTML(TD,{showPer:false,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set()),mode:"done"})}
- function render(keep){const y=window.scrollY;top();$("qbody").innerHTML=st.tab==="pac"?tabPac():st.tab==="todo"?tabTodo():st.tab==="done"?tabDone():tabRes();if(keep)window.scrollTo(0,y)}
+ function render(keep){const y=window.scrollY;top();$("qbody").innerHTML=st.tab==="pac"?tabPac():st.tab==="todo"?tabTodo():st.tab==="done"?tabDone():st.tab==="nv"?nvHTML(S,AK,{hasOrg:HASORG,lim:st.nvl||60}):tabRes();if(keep)window.scrollTo(0,y)}
  const go=t=>{st.tab=t;render();const tb=$("qtabs");if(tb.getBoundingClientRect().top<0)tb.scrollIntoView({block:"start"})};
  const root=$("main");
  root.onclick=e=>{const t=e.target;
   const tab=t.closest("[data-tab]");if(tab){go(tab.dataset.tab);return}
+  const nvk=t.closest(".kpi.nvk");if(nvk){go("nv");return}
+  const nvm=t.closest("[data-nvmore]");if(nvm){st.nvl=(st.nvl||60)+100;render(true);return}
   const hp=t.closest("[data-help]");if(hp){st.help=hp.dataset.help&&st.help!==hp.dataset.help?hp.dataset.help:"";render(true);return}
   const x=t.closest("[data-x]");if(x){if(x.dataset.x==="*")Object.keys(F).forEach(k=>delete F[k]);else delete F[x.dataset.x];render(true);return}
   const al=t.closest("[data-all]");if(al){st["all"+al.dataset.all]=!st["all"+al.dataset.all];render(true);return}
@@ -750,15 +792,17 @@ function mountAnnual(KS,title,REC){
  ${pend.length?tbl(pend,st.allV?999:10)+(pend.length>10?`<button type="button" class="lnk" data-allv="1">${st.allV?"mostrar só os 10 maiores":`mostrar todos os ${pend.length}`}</button>`:""):""}
  ${done.length?`<details><summary>Origem já definida: ${dp.length} ${dp.length===1?"paciente":"pacientes"} para Pantheon e ${doc.length} para outras clínicas · ver ou corrigir</summary>${tbl(done,999)}</details>`:""}</div>`})()}`}
  function render(keep){const y=window.scrollY;const tc=todoCount(TD);
-  const tabs=[["ano","Resumo do ano"]].concat(HASO?[["org","Pantheon × outras clínicas"]]:[]).concat([["todo",`A fazer${tc?` <span class="cnt warn">${tc}</span>`:""}`],["done",`Tratadas${doneCount(TD)?` <span class="cnt">${doneCount(TD)}</span>`:""}`]]);
+  const tabs=[["ano","Resumo do ano"]].concat(HASO?[["org","Pantheon × outras clínicas"]]:[]).concat([["todo",`A fazer${tc?` <span class="cnt warn">${tc}</span>`:""}`],["done",`Tratadas${doneCount(TD)?` <span class="cnt">${doneCount(TD)}</span>`:""}`],["nv","Não volta"]]);
   main.innerHTML=`<header><div class="eyebrow">${esc(title)} · ${Ps.length} quinzenas</div><h1>Relatório de Glosas <span class="per">${esc(DATA[ak].label)}</span></h1><div class="meta"><span>Repasses de <b>${Ps[0].D.meta.rep}</b> a <b>${Ps[Ps.length-1].D.meta.rep}</b></span><span>Cobrado no período <b>${brl(C)}</b></span></div></header>
   <div class="qtop"><div class="kpis">${kpi4(t,false,`${pct(t.g,C)} do cobrado no ano`,RECT,"o que os recursos pagaram em 2026")}</div><nav class="qtabs" role="tablist">${tabs.map(([k,l])=>`<button type="button" class="tab${st.tab===k?" on":""}" data-tab="${k}">${l}</button>`).join("")}<button type="button" class="lnk howto" data-help="como">Como ler?</button></nav>${st.help?helpBox(st.help):""}</div>
-  <div class="qbody">${st.tab==="org"&&HASO?tabOrg():st.tab==="todo"?todoHTML(TD,{showPer:true,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set())})+dicasHTML(ALL):st.tab==="done"?todoHTML(TD,{showPer:true,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set()),mode:"done"}):tabAno()}</div>
+  <div class="qbody">${st.tab==="org"&&HASO?tabOrg():st.tab==="todo"?todoHTML(TD,{showPer:true,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set())})+dicasHTML(ALL):st.tab==="done"?todoHTML(TD,{showPer:true,lim:st.tl,fil:st.tf,open:st.mo||(st.mo=new Set()),mode:"done"}):st.tab==="nv"?nvHTML(ALL,ak,{showPer:true,hasOrg:HASO,lim:st.nvl||60}):tabAno()}</div>
   <footer><span>Cada glosa foi acompanhada nas quinzenas seguintes pela guia, pelo serviço e pela data do atendimento. Recursos negados não são somados de novo.</span><span>Motivos: Tabela 38 TUSS/TISS (ANS), escritos em linguagem simples.</span></footer>`;
   if(keep)window.scrollTo(0,y)}
  main.onclick=e=>{const t=e.target;
   const o=t.closest("[data-open]");if(o){setHash(o.dataset.open);show(o.dataset.open);window.scrollTo(0,0);return}
   const tab=t.closest("[data-tab]");if(tab){st.tab=tab.dataset.tab;render();return}
+  const nvk=t.closest(".kpi.nvk");if(nvk){st.tab="nv";render();const tb=main.querySelector(".qtabs");if(tb)tb.scrollIntoView({block:"start",behavior:"smooth"});return}
+  const nvm=t.closest("[data-nvmore]");if(nvm){st.nvl=(st.nvl||60)+100;render(true);return}
   const hp=t.closest("[data-help]");if(hp){st.help=hp.dataset.help&&st.help!==hp.dataset.help?hp.dataset.help:"";render(true);return}
   const sv=t.closest(".obsave");if(sv){const ta=sv.closest(".obedit").querySelector("textarea.obs");const id=sv.dataset.ak+"|"+sv.dataset.ok;setOb(sv.dataset.ak,sv.dataset.ok,ta.value);delete OBDR[id];OBED.delete(id);render(true);return}
   const oe=t.closest(".obedt");if(oe){const id=oe.dataset.ak+"|"+oe.dataset.ok;OBED.add(id);render(true);const ta=[...document.querySelectorAll("textarea.obs")].find(x=>x.dataset.ok===oe.dataset.ok);if(ta){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}return}
